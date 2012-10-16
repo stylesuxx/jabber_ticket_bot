@@ -58,7 +58,7 @@ class IncommingProcessor
 			msg
 
 		# show a pretty project list
-		when /^pro(jects)?/
+		when /^pro(jects)?$/
 			projects = @project.getNiceList
 
 			output = "Projects:"
@@ -71,14 +71,14 @@ class IncommingProcessor
 			output
 
 		# del(ete) pro(ject) machinename
-		when /^del(ete)? pro(ject)? ([a-zA-Z0-9]+)/
+		when /^del(ete)? pro(ject)? ([a-zA-Z0-9]+)$/
 			values = command.split " "
 			machinename = values[2]
 
 			@project.delete machinename
 
 		# add tracket machinename "Some Title" "some description text"
-		when /^add ([a-zA-Z0-9]+) ([a-zA-Z0-9]+) \"([a-zA-Z0-9 ]+)\" \"(.*)\"/
+		when /^add ([a-zA-Z0-9]+) ([a-zA-Z0-9]+) \"([a-zA-Z0-9 ]+)\" \"(.*)\"$/
 			values = command.split "\""
 			values.delete_if {|i| i==" "}
 
@@ -96,7 +96,6 @@ class IncommingProcessor
 				rescue
 					"You are not registered to the Tracker, please contact an admin."
 				end
-					puts "we are here"
 					tid = @ticket.add pid, title, description, cid, tracker
 					"New #{tracker} (##{tid}) has been added to #{machinename}."
 			rescue => e
@@ -104,7 +103,7 @@ class IncommingProcessor
 			end
 
 		# show new tickets
-		when /^show new/
+		when /^new$/
 			tickets = @ticket.getNew
 
 			output = "New tickets:"
@@ -127,8 +126,36 @@ class IncommingProcessor
 			output = output == "New tickets:" ? "There are no unasigned tickets." : output
 			output
 
+		when /^d(etails)? ([0-9]+)$/
+			values = command.split " "
+			tid = values[1]
+
+			if @ticket.exists? tid
+				ticket = @ticket.getDetails tid
+
+				tid = ticket['id']
+				title = ticket['title']
+				description = ticket['description']
+				tracker = ticket['tracker']
+	  		created = ticket['created']
+				pid = ticket['pid']
+				cid = ticket['creator']
+				status = ticket['status']
+
+				machinename = @project.getMachinename pid
+				nick = @user.getNickFromId cid
+
+				output = "Details for ticket ##{tid}:"
+				output += "\n| ##{tid} [#{tracker}] \"#{title}\" in #{machinename} [#{status}]\n"
+				output += "| Added by #{nick} on #{created}\n"
+				output += "#{description}"
+			else
+				output = "There is no such ticket."
+			end
+			output
+
 		# assign ticket to yourself
-		when /^assign ([0-9]+)/
+		when /^a(ssign )?([0-9]+)$/
 			values = command.split " "
 			tid = values[1]
 			uid = @user.getId jid
@@ -146,7 +173,7 @@ class IncommingProcessor
 			end
 
 		# Delete ticket by id
-		when /^del(ete)? ([0-9]+)/
+		when /^del(ete)? ([0-9]+)$/
 			values = command.split " "
 			tid = values[1]
 			deleted = @ticket.delete tid
@@ -157,43 +184,69 @@ class IncommingProcessor
 			end
 			msg
 
+		# Close a ticket
+		when /^close ([0-9]+)$/
+			values = command.split " "
+			tid = values[1]
+
+			if @ticket.exists? tid
+				closed = @ticket.updateStatus tid, "closed"
+				msg = "Ticked ##{tid} has been closed." 
+			else
+				msg = "There is no such ticket."
+			end
+			msg
+
 		# update nr status "Followup text"
-		when /^update ([0-9]+) ([a-zA-Z0-9]+) \"([a-zA-Z0-9 ]+)\"/
+		when /^update ([0-9]+) ([a-zA-Z0-9]+) \"([a-zA-Z0-9 ]+)\"$/
 			puts "updating a ticket"
 			# get the ticket id
 			# add a followup to the ticket
 			# update the status of the ticket
 
-		# Get all tickets assigned to the requesting user
-		when /^my/
-			# get the user id from jid
+		# Show the requesting users tickets
+		when /^m(y)?$/
 			uid = @user.getId jid
-			# get the tickets assigned to that id which are not closed
 			tickets = @ticket.getAssigned uid
 
 			output = "Your tickets:"
 			tickets.each do |ticket|
 				tid = ticket['id']
 				title = ticket['title']
-				description = ticket['description']
 				tracker = ticket['tracker']
-				created = ticket['created']
 				status = ticket['status']
 				pid = ticket['pid']
-				cid = ticket['creator']
-				machinename = @project.getMachinename pid
-				nick = @user.getNick cid
 
-				output += "\n| ##{tid} [#{tracker}] \"#{title}\" in #{machinename} [#{status}]\n"
-				output += "| Added by #{nick} on #{created}\n"
-				output += "#{description}\n"
-				output += "=================================="
+				machinename = @project.getMachinename pid
+
+				output += "\n##{tid} [#{tracker}] <b>\"#{title}\"</b> in #{machinename} [#{status}]"
 			end
-			output = output == "Your Tickets:" ? "You have no tickets assigned." : output
+			output = tickets.count < 1 ? "You have no tickets assigned." : output
 			output
 
+		# Show the requesting users open bugs
+		when /^m(y )?b(ugs)?$/
+			puts "Show bugs"
+
+		# Show the requesting users open features
+		when /^m(y )?f(eatures)?$/
+			puts "Show features"
+
+		# Set the status of a ticket to in_progress
+		when /^pro(gress)? ([0-9]+)$/
+			values = command.split " "
+			tid = values[1]
+
+			if @ticket.exists? tid
+				closed = @ticket.updateStatus tid, "in_progress"
+				msg = "Ticked ##{tid} is in progress." 
+			else
+				msg = "There is no such ticket."
+			end
+			msg
+
 		# Test all methods in the project crud
-		when /^testpro/
+		when /^testpro$/
 			output = "Testing the project methods: "
 
 			#add
@@ -227,7 +280,7 @@ class IncommingProcessor
 			output
 
 		# Test all methods in the user crud
-		when /^testuser/
+		when /^testuser$/
 			output = "Testing the user methods:"
 
 			#add
@@ -271,50 +324,99 @@ class IncommingProcessor
 			output
 
 		# Test all methods in the ticket crud
-		when /^testticket/
-		
+		when /^testticket$/
+			output = "Testing the ticket methods:"
 
-		when /^sleep/
+			#add
+			puts "Adding new ticket"
+			id = @ticket.add 69, "Automated ticket", "this is just an automated ticket", "1", "bug"
+			output += "\nNew ticket added: #{id}"
+
+			#check if exists id
+			puts "Checking if ticket exists"
+			exists = @ticket.exists? id
+			output += "\nTicket exists: #{exists}"
+
+			#assign
+			puts "Assigning ticket"
+			assigned = @ticket.assign id, 1
+			output += "\nAssigned ticket #{id}: #{assigned}"
+
+			#change status
+			puts "Updating Status"
+			updated = @ticket.updateStatus id, "blub"
+			output += "\nUpdated status: #{updated}"
+
+			#get status
+			puts "Getting Status"
+			status = @ticket.getStatus id
+			output += "\nStatus: #{status}"
+
+			#check if assigned
+			puts "Checking if assigned"
+			assigned = @ticket.assigned? id
+			output += "\nAssigned: #{assigned}"
+
+			#unassign
+			puts "Unassigning ticket"
+			unassigned = @ticket.unassign id
+			output += "\nUnasigned: #{unassigned}"
+
+			#check if assigned
+			puts "Checking if assigned"
+			assigned = @ticket.assigned? id
+			output += "\nAssigned: #{assigned}"
+
+			#delete
+			puts "Deleting ticket"
+			deleted = @ticket.delete id
+			output += "\nTicket deleted: #{deleted}"		
+
+		when /^sleep$/
 			sleep 20
 			"Returned from sleeping"
 
-		when /^test/
-			puts "testing the or filter"
-			@ticket.testOrFilter
+		when /^time$/
+			Time.now.localtime.to_s
 
-		when /^time/
-			Time.now.localtime
-		when /^ping/
+		when /^ping$/
 			"pong"
-		when /^help/
+
+		when /^help$/
 			help
+
 		else
-			"Command not recognized: #{command}"
+			"Command not recognized: '#{command}'"
+
 		end
 	end
 
 	# Returns help text.
 	def help
 "Help:
-User Commands:
+<u>User Commands:</u>
 ping, help, time
-pro(jects) Show a list of projects
-show new Shows new unasigned tickets
+pro(jects) <i>Show a list of projects</i>
+new <i>Shows new unasigned tickets</i>
 add tracker machinename \"Some Title\" \"some descriptive text\"
 
-Watcher Commands:
+<u>Watcher Commands:</u>
 
-Maintainer Commands:
-assign nr Assign ticket with nr to yourself
-my Show all tickets that are asigned to you and not yet closed
+<u>Maintainer Commands:</u>
+assign nr <i>Assign ticket with nr to yourself</i>
+m(y) <i>Show all tickets that are asigned to you and not yet closed</i>
+pro(gress) ID <i>Set the status of a ticket to in_progress</i>
+m(y )b(ugs) <i>Show assigned open bugs</i>
+m(y )f(eatures) <i>Show assigned open features</i>
+close ID <i>Close a ticket that is assigned to you</i>
 
-Debugging:
-sleep
-
-Admin Commands:
+<u>Admin Commands:</u>
 add pro(ject) machinename \"Project title\" \"Some descriptive text\"
 del(ete) pro(ject) machinename
-del(ete) nr Delete ticket with nr"
+del(ete) nr Delete ticket with nr
+
+<u>Debugging:</u>
+sleep, testpro, testuser, testticket"
 
 	end
 

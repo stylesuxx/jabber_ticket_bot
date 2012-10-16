@@ -1,5 +1,3 @@
-#!/usr/bin/ruby -w
-
 require 'mysql2'
 require 'optparse'
 require 'xmpp4r'

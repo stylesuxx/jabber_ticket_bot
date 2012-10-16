@@ -74,6 +74,20 @@ class UserProcessor
 		end
 	end
 
+	# Gets a users nick by his ID
+	#
+	# +id+:: The id to look the nick up for
+	#
+	# Returns the users nick or nil in case th user does not exist
+	def getNickFromId id
+		user = @users.read ["nick"], ["id", id]
+		if user.count > 0
+			user[0]['nick']
+		else
+			nil
+		end
+	end
+
 	# Gets a users role by his JID.
 	#
 	# +jid+:: The JID to lookup the role for

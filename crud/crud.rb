@@ -92,15 +92,16 @@ class CRUD
 	# +andFilter+:: A Hashtable where the keys are the fields and the values art the values to filter for
 	#	+notFilter+:: A Hashtable where the keys are the fields and the values art the values to filter for
 	#
-	# Returns the id of the updated record or nil in case of error.
+	# Returns true if the ticket was updated, false otherwise.
 	def update fields, primaryFilter = nil, orFilter = nil, andFilter = nil, notFilter = nil
 		fields.delete_if {|key, value| !@validFields.include? key}
 
 		if fields.count > 0
 			begin
-				query = "UPDATE #{table} SET"
+				query = "UPDATE #{@table} SET"
 				fields.each {|key, value| query += " #{key}='#{value}',"}
-				query = query[0..-2]
+				timestamp = Time.now
+				query += "updated='#{timestamp}'"
 
 				if primaryFilter
 					query += " WHERE #{primaryFilter[0]}='#{primaryFilter[1]}'"
@@ -119,10 +120,10 @@ class CRUD
 				end
 
 				@dbh.query query
-				@dbh.last_id
+				true
 			rescue => e
 				puts "Error: #{e.error}"
-				nil
+				false
 			end
 		end
 	end

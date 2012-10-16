@@ -8,6 +8,7 @@ require './processor/incomming'
 
 require 'xmpp4r'
 require 'xmpp4r/roster'
+require 'xmpp4r/xhtml'
 
 # This is the Bot's backend, it processes incomming messages by adding them to a Queue and then processing them multithreaded
 class Backend
@@ -30,7 +31,7 @@ class Backend
     
     ticketDB = TicketCrud.new database, 
                               'tickets', 
-                              ['*', 'id', 'title', 'description', 'active', 'created', 'creator', 'tracker', 'status']
+                              ['*', 'id', 'title', 'description', 'active', 'created', 'creator', 'tracker', 'status', 'assigned', 'pid']
     ticketActions = TicketProcessor.new ticketDB
 
     @incomming = IncommingProcessor.new userActions, projectActions, ticketActions
@@ -62,14 +63,14 @@ class Backend
 
         response = @incomming.process command, jid
 
-        msg = Message::new
-        msg.to = stanza.from
-        msg.body = response
+        msg = Message::new stanza.from
+        msg.type = :chat
+        html = msg.add(XHTML::HTML.new(response.gsub("\n","<br />")))
+        msg.body = html.to_text
         @client.send(msg)
       }
     end
     @processing = false
   end
-
 
 end
