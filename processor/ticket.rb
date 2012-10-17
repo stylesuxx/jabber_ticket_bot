@@ -45,7 +45,7 @@ class TicketProcessor
 	#
 	# Returns an Array with all unasigned tickets.
 	def getNew
-		@tickets.read ['id', 'pid', 'title', 'description', 'tracker', 'creator', 'created'], ['status', 'new'], nil, nil, nil
+		@tickets.read ['id', 'pid', 'title', 'tracker', 'created'], ['status', 'new']
 	end
 
 	# Checks if a ticket is already assigned.
