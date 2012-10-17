@@ -102,7 +102,7 @@ begin
   end 
 
   dbh = Mysql2::Client.new(:host => options[:dbhost], :username => options[:dbuser], :password => options[:dbpass], :database => options[:db])
-  bot = Bot.new options[:jid], options[:jidpass], dbh
+  bot = Bot.new options[:jid], options[:jidpass], dbh, true
 
 rescue Mysql2::Error => e
   puts "Error code: #{e.errno}"
