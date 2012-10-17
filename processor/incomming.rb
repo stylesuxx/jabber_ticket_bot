@@ -39,25 +39,27 @@ class IncommingProcessor
 
 			@user.add nick, email, jid
 
-		# add project machinename "Project Title" "Some description text"
-		when /^add pro(ject)? ([a-zA-Z0-9]+) \"([a-zA-Z0-9 ]+)\" \"(.*)\"/
-			values = command.split "\""
-			values.delete_if {|i| i==" "}
+		# Add a new project
+		when /^add pro(ject)? ([a-zA-Z0-9]+) \"([a-zA-Z0-9 ]+)\" \"(.*)\"$/
+			if role == 'admin'
+				values = command.split "\""
+				values.delete_if {|i| i==" "}
 
-			machinename = values[0].split " "
-			machinename = machinename[2]
-			title = values[1]
-			description = values[2]
+				machinename = values[0].split " "
+				machinename = machinename[2]
+				title = values[1]
+				description = values[2]
 
-			added = @project.add machinename, title, description, nil, nil
-			if added
-				msg = "New project has been added"
-			else
-				msg = "There is already a project with this machinename"
+				added = @project.add machinename, title, description, nil, nil
+				if added
+					msg = "New project '#{machinename}' has been added"
+				else
+					msg = "There already is a project with this name."
+				end
+				msg
 			end
-			msg
 
-		# show a pretty project list
+		# Show all projects
 		when /^pro(jects)?$/
 			projects = @project.getNiceList
 
@@ -67,20 +69,28 @@ class IncommingProcessor
 				output += "#{row['description']}\n"
 				output += "-------------------------------------------"
 			end
-			output = output == "Projects:" ? "There are no projects in the database" : output
+			output = projects.size > 0 ? output : "There are no projects in the database"
 			output
 
-		# del(ete) pro(ject) machinename
+		# Delete a project
 		when /^del(ete)? pro(ject)? ([a-zA-Z0-9]+)$/
-			values = command.split " "
-			machinename = values[2]
+			if role == 'admin'
+				values = command.split " "
+				machinename = values[2]
 
-			@project.delete machinename
+				if @project.getId machinename
+					@project.delete machinename
+					"Project '#{machinename}' has been deleted."
+				else
+					"There is no such project."
+				end
+			end
+
 
 		# add tracket machinename "Some Title" "some description text"
 		when /^add ([a-zA-Z0-9]+) ([a-zA-Z0-9]+) \"([a-zA-Z0-9 ]+)\" \"(.*)\"$/
 			values = command.split "\""
-			values.delete_if {|i| i==" "}
+			values.delete_if {|i| i == " "}
 
 			params = values[0].split " "
 
@@ -89,41 +99,32 @@ class IncommingProcessor
 			title = values[1]
 			description = values[2]
 
-			begin
-				pid = @project.getId machinename
-				begin
-					cid = @user.getId jid
-				rescue
-					"You are not registered to the Tracker, please contact an admin."
-				end
-					tid = @ticket.add pid, title, description, cid, tracker
-					"New #{tracker} (##{tid}) has been added to #{machinename}."
-			rescue => e
-			 "Error: #{e.error}"
+			pid = @project.getId machinename
+			if pid
+				cid = @user.getId jid
+
+				tid = @ticket.add pid, title, description, cid, tracker
+				"New #{tracker} (##{tid}) has been added to #{machinename}."
+			else
+				"There is no such project."
 			end
 
 		# show new tickets
-		when /^new$/
+		when /^n(ew)?$/
 			tickets = @ticket.getNew
 
-			output = "New tickets:"
+			output = "New unassigned tickets:"
 			tickets.each do |ticket|
 				tid = ticket['id']
 				title = ticket['title']
-				description = ticket['description']
 				tracker = ticket['tracker']
-				created = ticket['created']
 				pid = ticket['pid']
-				cid = ticket['creator']
-				machinename = @project.getMachinename pid
-				nick = @user.getNick cid
 
-				output += "\n| ##{tid} [#{tracker}] \"#{title}\" in #{machinename}\n"
-				output += "| Added by #{nick} on #{created}\n"
-				output += "#{description}\n"
-				output += "=================================="
+				machinename = @project.getMachinename pid
+
+				output += "\n##{tid} [#{tracker}] <b>\"#{title}\"</b> in #{machinename}"
 			end
-			output = output == "New tickets:" ? "There are no unasigned tickets." : output
+			output = tickets.count < 1 ? "There are no new tickets." : output
 			output
 
 		when /^d(etails)? ([0-9]+)$/
